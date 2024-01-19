@@ -3,4 +3,4 @@ Lightly Fucked
 # Shit We Gotta PERFORM
 Object detction based on magnitude\
 Distance to object\
-USB communication\
+USB communication

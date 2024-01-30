@@ -1,6 +1,7 @@
 # Senior-Project-2024
 Lightly Fucked
 # Shit We Gotta PERFORM
-Object detction based on magnitude\
+Object detetion based on magnitude\
 Distance to object\
-USB communication
+USB communication\
+Data display

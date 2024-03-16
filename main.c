@@ -43,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 
@@ -58,6 +59,7 @@ static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USB_PCD_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -101,22 +103,22 @@ void PINCHECK(){
 
 	}
 	if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_9)){
-		timer_val2 = __HAL_TIM_GET_COUNTER(&htim16) - timer_val2;
+		timer_val2 = __HAL_TIM_GET_COUNTER(&htim2) - timer_val2;
 		HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);
 
 	}
 	if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10)){
-		timer_val3 = __HAL_TIM_GET_COUNTER(&htim16) - timer_val3;
+		timer_val3 = __HAL_TIM_GET_COUNTER(&htim2) - timer_val3;
 		HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);
 
 	}
 	if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_11)){
-		timer_val4 = __HAL_TIM_GET_COUNTER(&htim16) - timer_val4;
+		timer_val4 = __HAL_TIM_GET_COUNTER(&htim2) - timer_val4;
 		HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);
 
 	}
 	if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_12)){
-		timer_val5 = __HAL_TIM_GET_COUNTER(&htim16) - timer_val5;
+		timer_val5 = __HAL_TIM_GET_COUNTER(&htim2) - timer_val5;
 		HAL_GPIO_TogglePin(LD2_GPIO_Port,LD2_Pin);
 
 	}
@@ -155,6 +157,7 @@ int main(void)
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   MX_USB_PCD_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   //setting i/0 pins and on-board led to low
@@ -164,6 +167,9 @@ int main(void)
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, 0);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, 0);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, 0);
+
+  //setting PWM pulse flag
+  int global_pulse_flag = 0;
 
   /* USER CODE END 2 */
 
@@ -176,10 +182,38 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	  //testing PWM Interupt after 8 periods
+
+	  //setting PWM for pin B5
+	    if(HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2) != HAL_OK)
+	    {
+	  	  TIM3->CCR3 = 1800;
+	  	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+	        Error_Handler();
+	    }
+
+	  //testing PWM Interupt after 8 periods
+	  void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+	  {
+	      if(htim -> Instance == TIM3)
+	      {
+	          if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
+	          {
+	              if(global_pulse_flag < 8){
+	            	  global_pulse_flag++;
+	              }
+	              else{
+	            	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_2);
+	              }
+
+	          }
+	      }
+	  }
+
 	//testinf i/o pins for this whole loop
 
 	//start clock
-	HAL_TIM_Base_Start(&htim16);
+	HAL_TIM_Base_Start(&htim2);
 
 	// LED ON
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, 1);
@@ -283,11 +317,15 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
+  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
+
+  /** Enables the Clock Security System
+  */
+  HAL_RCC_EnableCSS();
 }
 
 /**
@@ -346,6 +384,55 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1800;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
 
 }
 
